@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Project build artefacts and data (never lint bundled output).
+    ".mastra/**",
+    ".vercel/**",
+    "data/**",
+    "evals/reports/**",
+    "coverage/**",
   ]),
 ]);
 

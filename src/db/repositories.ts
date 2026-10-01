@@ -1,4 +1,8 @@
-import type { QueryResult, QueryResultRow } from "pg";
+import { types, type QueryResult, type QueryResultRow } from "pg";
+
+// Postgres DATE columns come back as "YYYY-MM-DD" strings instead of JS Dates at
+// local midnight, which `toISOString()` would shift by a day in CEST.
+types.setTypeParser(types.builtins.DATE, (value: string) => value);
 
 /**
  * Anything with pg's `query(text, params)` — a Pool, a PoolClient or a test double.

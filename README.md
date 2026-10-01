@@ -129,6 +129,31 @@ Free-tier note: Supabase pauses free projects after 7 days without activity. Che
 
 Local alternative for development: `docker run -d --name stag-pg -e POSTGRES_PASSWORD=stag -e POSTGRES_DB=stag -p 54329:5432 pgvector/pgvector:pg17` and point both URLs at `postgresql://postgres:stag@localhost:54329/stag`.
 
+## Feeding the agent (RAG)
+
+Ingestion is a Mastra workflow (`ingestSources`, visible in Studio) with three steps: resolve the requested sources → ingest each one (failures isolated per source) → write a summary row to `ingestion_runs`.
+
+For a law (`gii-law`) the per-source pipeline is:
+
+1. **Fetch** the official XML (`https://www.gesetze-im-internet.de/<slug>/xml.zip`) with a conditional request (`If-None-Match`/`If-Modified-Since`), a descriptive User-Agent and a per-host delay; the zip is validated and retried once (the server occasionally truncates it). Raw files are cached under `data/raw/<source>/` (gitignored).
+2. **Detect change**: a 304 or an unchanged content hash ⇒ `skipped` (only `last_checked_at` is updated). `--force` ingests anyway.
+3. **Parse** per `<norm>`: law header (abbreviation, title, `Stand`, `standDate`, `builddate`) and sections with key (`10`, `12a`, `art16`), citation (`§ 10 StAG`), deep link, Absätze, repealed flags (title or text `(weggefallen)`, `(XXXX) §§ 18 und 19` groups), footnotes. Enumerations are rendered as numbered lines so the text stays readable.
+4. **Chunk**: one chunk per §, prefixed with `StAG § 10 (Stand: …)`; sections longer than ~1,800 characters are split by whole Absätze and cited as `§ 10 Abs. 3 StAG`. Repealed provisions stay visible as `(weggefallen)`.
+5. **Embed** with the configured Gemini embedding model (task type `RETRIEVAL_DOCUMENT`, 768 dimensions), 100 texts per call with retry/backoff; vectors with the wrong dimensionality are rejected.
+6. **Store**: the version is written to `law_versions` and full section texts to `law_sections`; vectors + metadata are upserted into the pgvector index. If a **previous version** exists it is archived, never deleted: `law_versions.is_current=false`, `valid_to`, and every old chunk rewritten with `historical=true`/`validTo` (PgVector's `updateVector` replaces metadata, so chunks are re-upserted with their existing vectors).
+7. **Record** the result in `source_versions` (version, hash, Stand, fetch validators, chunk count, status).
+
+Commands:
+
+```bash
+pnpm ingest                       # all enabled sources
+pnpm ingest --source stag --force # one source, even if unchanged
+pnpm sources:status               # per-source state, law versions, chunk counts (current + historical)
+pnpm query "Wie lange muss ich in Deutschland leben?" --tier 1 --k 8   # debug retrieval (--historical to include archived versions)
+```
+
+Ingestion runs on your machine or in GitHub Actions against the Supabase session pooler; the deployed app only reads.
+
 ## RAG data model
 
 Everything the agent retrieves is a **chunk**: a piece of text with a vector and a metadata object. The metadata is what makes citations, tier ranking, freshness and the old-law feature possible.
@@ -162,7 +187,7 @@ Integration tests for the repositories run against a throwaway schema when `TEST
 - [x] Step 3 – Streaming chat route, minimal UI, password gate, Vercel deploy on push
 - [x] Step 4 – Supabase Postgres + pgvector: Mastra storage/vectors, pools, migrations
 - [x] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
-- [ ] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
+- [x] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
 - [ ] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
 - [ ] Step 8 – Retrieval tools with code-enforced hierarchy
 - [ ] Step 9 – Agent v1: instructions, tools, CitationGuard, sources UI

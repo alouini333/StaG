@@ -73,7 +73,10 @@ describe.skipIf(!url)("repositories (integration)", () => {
       { lawAbbrev: "StAG", versionId: "v2", sectionKey: "10", sectionRef: "§ 10 StAG", title: null, text: "(3) (weggefallen)", url: null, repealed: false },
     ]);
 
-    expect((await getCurrentLawVersion(db, "StAG"))?.versionId).toBe("v2");
+    const current = await getCurrentLawVersion(db, "StAG");
+    expect(current?.versionId).toBe("v2");
+    expect(current?.standDate).toBe("2025-10-30"); // DATE columns must round-trip without timezone shifts
+    expect(current?.validFrom).toBe("2025-10-30");
     expect((await getLawSection(db, "StAG", "10"))?.text).toBe("(3) (weggefallen)");
     expect((await getLawSection(db, "StAG", "10", "v1"))?.text).toBe("(3) drei Jahre");
     expect((await getLawVersionAsOf(db, "StAG", "2025-01-15"))?.versionId).toBe("v1");

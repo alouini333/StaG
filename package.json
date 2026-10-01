@@ -13,7 +13,10 @@
     "smoke": "tsx scripts/smoke.ts",
     "mastra:dev": "mastra dev",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:init": "tsx scripts/db-init.ts"
+    "db:init": "tsx scripts/db-init.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "sources:status": "tsx scripts/sources-status.ts",
+    "query": "tsx scripts/query.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.87",
@@ -24,6 +27,8 @@
     "@mastra/pg": "^1.28.0",
     "@vercel/functions": "^3.9.9",
     "ai": "7.0.124",
+    "fast-xml-parser": "^5.11.2",
+    "fflate": "^0.8.3",
     "next": "16.3.8",
     "pg": "^8.23.0",
     "react": "19.2.8",

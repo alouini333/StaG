@@ -101,6 +101,34 @@ Current Gemini model IDs: https://ai.google.dev/gemini-api/docs/models (Google r
 
 `pnpm smoke` calls the agent once from the CLI (`pnpm smoke "Your question"` to pass your own prompt) and prints the reply together with the model ID.
 
+## Database (Supabase Postgres + pgvector)
+
+One database holds everything: Mastra's storage tables, the pgvector index and the app's own tables (from Step 5).
+
+Two connection strings, both from Supabase → *Connect*:
+
+| Variable | Supabase pooler | Used by |
+|---|---|---|
+| `DATABASE_URL` | Transaction pooler, port **6543** | the web app (Vercel functions): module-scope pool, `max 4`, 5 s idle timeout |
+| `DATABASE_URL_SESSION` | Session pooler, port **5432** | migrations, ingestion, GitHub Actions (IPv4; long transactions) |
+
+Do not use the direct `db.<ref>.supabase.co` connection: it is IPv6-only on the free tier.
+
+Commands:
+
+```bash
+pnpm db:migrate   # applies src/db/migrations/*.sql (tracked in schema_migrations); idempotent
+pnpm db:init      # migrations + Mastra storage schema + HNSW vector index for the current embedding model; idempotent
+```
+
+Run `pnpm db:init` once per database (locally or in CI). The deployed app runs with `MASTRA_DISABLE_STORAGE_INIT=true`, so it never issues DDL on cold starts. `/api/health` (behind the password) reports the database round-trip time and the index status.
+
+The vector index is named `citizenship_<embedding-model>_<dims>` (currently `citizenship_gemini_embedding_001_768`, HNSW, cosine, metadata indexes on `tier`, `sourceId`, `historical`). pgvector indexes allow at most 2,000 dimensions.
+
+Free-tier note: Supabase pauses free projects after 7 days without activity. Check the project is active before a demo (it restores in a minute or two from the dashboard).
+
+Local alternative for development: `docker run -d --name stag-pg -e POSTGRES_PASSWORD=stag -e POSTGRES_DB=stag -p 54329:5432 pgvector/pgvector:pg17` and point both URLs at `postgresql://postgres:stag@localhost:54329/stag`.
+
 ## Roadmap
 
 - [x] Step 1 – Git repository, GitHub remote and project structure

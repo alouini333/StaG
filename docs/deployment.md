@@ -6,6 +6,7 @@ The app deploys from GitHub on every push: `main` → production, any other bran
 
 - Production: https://stag-lac.vercel.app (also `stag-alouini333s-projects.vercel.app`, `stag-git-main-alouini333s-projects.vercel.app`)
 - Environment variables set for Production and Preview: `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_CHAT_MODEL`, `GEMINI_UTILITY_MODEL`, `GEMINI_EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `APP_PASSWORD`, `AUTH_SECRET` (separate random value per environment), `COMMUNITY_PROVIDER`, `STALE_AFTER_DAYS`.
+- Step 4 adds `DATABASE_URL` (transaction pooler only; never put `DATABASE_URL_SESSION` on Vercel) and `MASTRA_DISABLE_STORAGE_INIT=true` to Production and Preview. Run `pnpm db:init` against the database before deploying code that needs it.
 - `vercel link` wrote `.vercel/` (gitignored) and `.env.local` containing only a `VERCEL_OIDC_TOKEN` (gitignored).
 
 ## One-time setup

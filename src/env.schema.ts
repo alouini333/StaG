@@ -16,9 +16,9 @@ export const envSchema = z
     // pgvector indexes support at most 2000 dimensions
     EMBEDDING_DIMENSIONS: z.coerce.number().int().min(128).max(2000).default(768),
 
-    // Supabase Postgres (required from Step 4 on)
-    DATABASE_URL: z.string().min(1).optional(),
-    DATABASE_URL_SESSION: z.string().min(1).optional(),
+    // Supabase Postgres: transaction pooler (web app) and session pooler (scripts, migrations, CI)
+    DATABASE_URL: z.string().min(1, "DATABASE_URL (Supabase transaction pooler, port 6543) is required"),
+    DATABASE_URL_SESSION: z.string().min(1, "DATABASE_URL_SESSION (Supabase session pooler, port 5432) is required"),
     MASTRA_DISABLE_STORAGE_INIT: bool,
 
     // Access control (required from Step 3 on)

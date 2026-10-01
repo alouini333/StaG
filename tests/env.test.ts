@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseEnv } from "@/env.schema";
 
-const minimal = { GOOGLE_GENERATIVE_AI_API_KEY: "test-key" };
+const minimal = {
+  GOOGLE_GENERATIVE_AI_API_KEY: "test-key",
+  DATABASE_URL: "postgresql://postgres.ref:pw@aws-0-eu-central-1.pooler.supabase.com:6543/postgres",
+  DATABASE_URL_SESSION: "postgresql://postgres.ref:pw@aws-0-eu-central-1.pooler.supabase.com:5432/postgres",
+};
 
 describe("parseEnv", () => {
   it("applies defaults when only the API key is set", () => {
@@ -15,13 +19,14 @@ describe("parseEnv", () => {
     expect(env.STALE_AFTER_DAYS).toBe(30);
   });
 
-  it("fails with a readable message when the API key is missing", () => {
+  it("fails with a readable message when required variables are missing", () => {
     expect(() => parseEnv({})).toThrowError(/GOOGLE_GENERATIVE_AI_API_KEY/);
+    expect(() => parseEnv({ GOOGLE_GENERATIVE_AI_API_KEY: "k" })).toThrowError(/DATABASE_URL/);
   });
 
   it("treats empty strings from .env files as unset", () => {
-    const env = parseEnv({ ...minimal, DATABASE_URL: "", APP_PASSWORD: "   " });
-    expect(env.DATABASE_URL).toBeUndefined();
+    const env = parseEnv({ ...minimal, CRON_SECRET: "", APP_PASSWORD: "   " });
+    expect(env.CRON_SECRET).toBeUndefined();
     expect(env.APP_PASSWORD).toBeUndefined();
   });
 

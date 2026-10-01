@@ -24,6 +24,12 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ GOOGLE_GENERATIVE_AI_API_KEY: "k" })).toThrowError(/DATABASE_URL/);
   });
 
+  it("does not require the session URL (scripts check it themselves; Vercel never has it)", () => {
+    const { DATABASE_URL_SESSION: _omit, ...withoutSession } = minimal;
+    void _omit;
+    expect(parseEnv(withoutSession).DATABASE_URL_SESSION).toBeUndefined();
+  });
+
   it("treats empty strings from .env files as unset", () => {
     const env = parseEnv({ ...minimal, CRON_SECRET: "", APP_PASSWORD: "   " });
     expect(env.CRON_SECRET).toBeUndefined();

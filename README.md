@@ -112,7 +112,7 @@ Two connection strings, both from Supabase → *Connect*:
 | `DATABASE_URL` | Transaction pooler, port **6543** | the web app (Vercel functions): module-scope pool, `max 4`, 5 s idle timeout |
 | `DATABASE_URL_SESSION` | Session pooler, port **5432** | migrations, ingestion, GitHub Actions (IPv4; long transactions) |
 
-Do not use the direct `db.<ref>.supabase.co` connection: it is IPv6-only on the free tier.
+Paste the strings **without** the `?sslmode=require&supa=...` suffix Supabase appends (TLS is configured in `src/db/pool-config.ts`). `DATABASE_URL_SESSION` is the same string with port 5432. Do not use the direct `db.<ref>.supabase.co` connection: it is IPv6-only on the free tier.
 
 Commands:
 

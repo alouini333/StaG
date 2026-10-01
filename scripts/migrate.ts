@@ -3,10 +3,10 @@ import "dotenv/config";
 import { closePools, getPool } from "../src/db/pool";
 import { describeConnection } from "../src/db/pool-config";
 import { runMigrations } from "../src/db/migrate";
-import { env } from "../src/env";
+import { connectionStringFor } from "../src/db/pool";
 
 async function main() {
-  console.log(`[migrate] database: ${describeConnection(env.DATABASE_URL_SESSION)}`);
+  console.log(`[migrate] database: ${describeConnection(connectionStringFor("session"))}`);
   const result = await runMigrations(getPool("session"));
   console.log(`[migrate] applied: ${result.applied.length ? result.applied.join(", ") : "none"}`);
   console.log(`[migrate] already applied: ${result.skipped.length}`);

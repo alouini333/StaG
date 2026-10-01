@@ -9,12 +9,12 @@ import { PostgresStore } from "@mastra/pg";
 import { closePools, getPool } from "../src/db/pool";
 import { describeConnection } from "../src/db/pool-config";
 import { runMigrations } from "../src/db/migrate";
-import { env } from "../src/env";
+import { connectionStringFor } from "../src/db/pool";
 import { createVectorStore, ensureVectorIndex } from "../src/retrieval/vector-store";
 import { EMBEDDING_DIMENSIONS, modelIds } from "../src/mastra/config/models";
 
 async function main() {
-  console.log(`[db-init] database: ${describeConnection(env.DATABASE_URL_SESSION)}`);
+  console.log(`[db-init] database: ${describeConnection(connectionStringFor("session"))}`);
 
   const migrations = await runMigrations(getPool("session"));
   console.log(`[db-init] migrations applied: ${migrations.applied.join(", ") || "none"} (skipped ${migrations.skipped.length})`);
@@ -25,7 +25,7 @@ async function main() {
 
   const vectors = new (await import("@mastra/pg")).PgVector({
     id: "citizenship-vectors-init",
-    connectionString: env.DATABASE_URL_SESSION,
+    connectionString: connectionStringFor("session"),
     disableInit: false,
     pgPoolOptions: { max: 2 },
   });

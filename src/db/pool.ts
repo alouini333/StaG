@@ -6,7 +6,13 @@ import { poolConfigFor, type PoolKind } from "./pool-config";
 const pools: Partial<Record<PoolKind, Pool>> = {};
 
 export function connectionStringFor(kind: PoolKind): string {
-  return kind === "runtime" ? env.DATABASE_URL : env.DATABASE_URL_SESSION;
+  if (kind === "runtime") return env.DATABASE_URL;
+  if (!env.DATABASE_URL_SESSION) {
+    throw new Error(
+      "DATABASE_URL_SESSION is required for scripts (migrations, ingestion): the Supabase session pooler URL on port 5432.",
+    );
+  }
+  return env.DATABASE_URL_SESSION;
 }
 
 /**

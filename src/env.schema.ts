@@ -16,9 +16,12 @@ export const envSchema = z
     // pgvector indexes support at most 2000 dimensions
     EMBEDDING_DIMENSIONS: z.coerce.number().int().min(128).max(2000).default(768),
 
-    // Supabase Postgres: transaction pooler (web app) and session pooler (scripts, migrations, CI)
+    // Supabase Postgres. Paste the pooler strings without query parameters
+    // (no `?sslmode=require&supa=...`); TLS is configured in src/db/pool-config.ts.
+    // DATABASE_URL: transaction pooler, port 6543 (web app / Vercel).
+    // DATABASE_URL_SESSION: same string on port 5432 (scripts, migrations, CI only; not set on Vercel).
     DATABASE_URL: z.string().min(1, "DATABASE_URL (Supabase transaction pooler, port 6543) is required"),
-    DATABASE_URL_SESSION: z.string().min(1, "DATABASE_URL_SESSION (Supabase session pooler, port 5432) is required"),
+    DATABASE_URL_SESSION: z.string().min(1).optional(),
     MASTRA_DISABLE_STORAGE_INIT: bool,
 
     // Access control (required from Step 3 on)

@@ -134,7 +134,7 @@ Local alternative for development: `docker run -d --name stag-pg -e POSTGRES_PAS
 - [x] Step 1 – Git repository, GitHub remote and project structure
 - [x] Step 2 – Mastra + Gemini wiring, validated env, configurable models
 - [x] Step 3 – Streaming chat route, minimal UI, password gate, Vercel deploy on push
-- [ ] Step 4 – Supabase Postgres + pgvector: Mastra storage/vectors, pools, migrations
+- [x] Step 4 – Supabase Postgres + pgvector: Mastra storage/vectors, pools, migrations
 - [ ] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
 - [ ] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
 - [ ] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs

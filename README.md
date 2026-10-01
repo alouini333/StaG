@@ -129,13 +129,39 @@ Free-tier note: Supabase pauses free projects after 7 days without activity. Che
 
 Local alternative for development: `docker run -d --name stag-pg -e POSTGRES_PASSWORD=stag -e POSTGRES_DB=stag -p 54329:5432 pgvector/pgvector:pg17` and point both URLs at `postgresql://postgres:stag@localhost:54329/stag`.
 
+## RAG data model
+
+Everything the agent retrieves is a **chunk**: a piece of text with a vector and a metadata object. The metadata is what makes citations, tier ranking, freshness and the old-law feature possible.
+
+**Sources** are declared in [`src/sources/registry.ts`](src/sources/registry.ts) and validated by zod at import time ([`src/sources/types.ts`](src/sources/types.ts)). Each has an `id` (slug), a `tier`, a `kind` (`gii-law`, `html-page`, `pdf`, `community-notes`, `law-change-seed`), a `jurisdictionScope` (`federal` or a Land) and kind-specific options (law abbreviation and gesetze-im-internet slug, page URLs and selectors, …). Reddit is not a source here: it is a live provider (Step 11).
+
+**Chunk metadata** (`chunkMetadataSchema`): `sourceId`, `tier`, `kind`, `title`, `url` (deep link), `lang`, `jurisdictionScope`, `sectionRef` (e.g. `§ 10 Abs. 3 StAG`), `lawAbbrev`, `stand` + `standDate` (as-of date of the source), `fetchedAt`, `sourceVersion`, `contentHash`, `chunkIndex`, and for laws `versionId`, `validFrom`, `validTo`, `historical`. Rules enforced by the schema: tier-4 chunks need `community` metadata, law chunks need `sectionRef`/`lawAbbrev`, `validTo` cannot precede `validFrom`, and historical chunks must have a `validTo`.
+
+**Chunk IDs** are deterministic: `<sourceId>::<sourceVersion>::<chunkIndex>`. Re-ingesting an unchanged source rewrites the same IDs; a new source version gets new IDs, so old chunks can be archived (laws) or deleted by `sourceId` filter (pages).
+
+**App tables** (SQL migrations in `src/db/migrations/`, typed access in [`src/db/repositories.ts`](src/db/repositories.ts)):
+
+| Table | Purpose |
+|---|---|
+| `source_versions` | Per-source ingestion state: version, hash, Stand, fetch headers, chunk count, status, pending-update flag |
+| `law_versions` | Every consolidated law version ever ingested, with validity range; never deleted |
+| `law_sections` | Full text per § and version, for exact lookups and as-of queries |
+| `law_changes` | Amendments (seeded from BGBl references or auto-detected), used for "this rule is outdated" answers |
+| `ingestion_runs` | Audit log of ingestion runs |
+| `legislation_alerts` | New legislation flagged by the scheduled check, awaiting review |
+| `community_cache` | Short-lived cache for live community lookups (purged after 48 h) |
+
+The vector index name encodes the embedding model and dimensions (`citizenship_gemini_embedding_001_768`), so changing either forces a clean re-index.
+
+Integration tests for the repositories run against a throwaway schema when `TEST_DATABASE_URL` is set (for example the local pgvector container); otherwise they are skipped.
+
 ## Roadmap
 
 - [x] Step 1 – Git repository, GitHub remote and project structure
 - [x] Step 2 – Mastra + Gemini wiring, validated env, configurable models
 - [x] Step 3 – Streaming chat route, minimal UI, password gate, Vercel deploy on push
 - [x] Step 4 – Supabase Postgres + pgvector: Mastra storage/vectors, pools, migrations
-- [ ] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
+- [x] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
 - [ ] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
 - [ ] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
 - [ ] Step 8 – Retrieval tools with code-enforced hierarchy

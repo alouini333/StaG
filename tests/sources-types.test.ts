@@ -38,6 +38,14 @@ describe("registry", () => {
     expect(stag?.enabled).toBe(true);
   });
 
+  it("has the tier-1..3 sources with https urls and unique ids", () => {
+    expect(registry.length).toBeGreaterThan(15);
+    expect(new Set(registry.map((s) => s.id)).size).toBe(registry.length);
+    expect(registry.filter((s) => s.tier === 1).length).toBeGreaterThanOrEqual(5);
+    expect(registry.filter((s) => s.tier === 3).every((s) => s.jurisdictionScope === "Berlin")).toBe(true);
+    expect(registry.find((s) => s.id === "bamf-gesamtfragenkatalog")?.enabled).toBe(false);
+  });
+
   it("rejects duplicate ids and invalid entries", () => {
     const [stag] = registry;
     expect(() => validateRegistry([stag, stag])).toThrow(/Duplicate source id/);

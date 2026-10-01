@@ -100,6 +100,8 @@ function renderInline(nodes: Node[], depth = 0): string {
       out += "\n" + renderList(node, depth);
     } else if (name === "P") {
       out += renderInline(childrenOf(node), depth) + "\n";
+    } else if (name === "row") {
+      out += "\n" + childrenOf(node).filter((c) => tagName(c) === "entry").map((c) => collapse(renderInline(childrenOf(c), depth))).join(" | ");
     } else if (name) {
       out += renderInline(childrenOf(node), depth);
     }
@@ -166,7 +168,12 @@ export function sectionUrl(slug: string, key: string, repealedGroup: boolean): s
   const base = `https://www.gesetze-im-internet.de/${slug}/`;
   if (repealedGroup || key.includes("-")) return base;
   if (key.startsWith("art")) return `${base}art_${key.slice(3)}.html`;
-  return `${base}__${key}.html`;
+  if (/^\d/.test(key)) return `${base}__${key}.html`;
+  return base; // Anlagen, Präambel etc. have no stable per-section page
+}
+
+export function isNumericSection(key: string): boolean {
+  return /^\d/.test(key) || key.startsWith("art");
 }
 
 /** "Zuletzt geändert durch Art. 3 G v. 21.7.2026 I Nr. 221" → "2026-07-21" */
@@ -207,8 +214,17 @@ export function parseGiiLaw(xml: string, options: { slug: string; includeSection
   const headerMeta = childrenOf(find(childrenOf(header), "metadaten") ?? {});
   const abbrev = collapse(plainText(find(headerMeta, "amtabk"))) || collapse(plainText(find(headerMeta, "jurabk")));
   const title = collapse(plainText(find(headerMeta, "langue"))) || collapse(plainText(find(headerMeta, "kurzue"))) || abbrev;
-  const standangabe = find(headerMeta, "standangabe");
-  const stand = standangabe ? collapse(plainText(find(childrenOf(standangabe), "standkommentar"))) || null : null;
+  // Several <standangabe> entries may exist (e.g. "Neugefasst durch Bek. v. …" and
+  // "Zuletzt geändert durch …"); the amendment Stand is the one that matters for freshness.
+  const standEntries = findAll(headerMeta, "standangabe").map((node) => ({
+    typ: collapse(plainText(find(childrenOf(node), "standtyp"))),
+    text: collapse(plainText(find(childrenOf(node), "standkommentar"))),
+  })).filter((e) => e.text);
+  const stand =
+    standEntries.find((e) => /^Zuletzt geändert/i.test(e.text))?.text ??
+    standEntries.find((e) => e.typ === "Stand")?.text ??
+    standEntries[0]?.text ??
+    null;
 
   const include = options.includeSections ? new Set(options.includeSections.map((s) => s.toLowerCase())) : null;
   const sections: ParsedSection[] = [];

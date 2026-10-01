@@ -62,6 +62,35 @@ function cookieHeader(host: string): string | undefined {
   return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
+
+/**
+ * Follows up to 5 redirects manually so Set-Cookie headers of every hop are
+ * captured (fetch's automatic following hides them). Cookies are sent per host.
+ */
+async function fetchFollowingRedirects(
+  startUrl: string,
+  baseHeaders: Record<string, string>,
+  timeoutMs: number,
+  method: "GET" | "HEAD" = "GET",
+): Promise<Response> {
+  let url = startUrl;
+  for (let hop = 0; hop < 6; hop++) {
+    const host = new URL(url).host;
+    const headers = { ...baseHeaders };
+    const cookie = cookieHeader(host);
+    if (cookie) headers.Cookie = cookie;
+    const response = await fetch(url, { method, headers, signal: AbortSignal.timeout(timeoutMs), redirect: "manual" });
+    storeCookies(host, response);
+    const location = response.headers.get("location");
+    if (response.status >= 300 && response.status < 400 && location) {
+      url = new URL(location, url).toString();
+      continue;
+    }
+    return response;
+  }
+  throw new Error(`Too many redirects for ${startUrl}`);
+}
+
 /**
  * fetch() with a descriptive User-Agent, per-host delays, cookie bootstrap,
  * conditional requests, retries with backoff and a timeout. Never throws on
@@ -72,13 +101,9 @@ export async function politeFetch(url: string, options: PoliteFetchOptions = {})
   const host = new URL(url).host;
 
   if (cookieBootstrapUrl && !cookieJar.has(host)) {
+    // Sites like bmi.bund.de set cookies across a redirect chain (307 → cookie check → 302 → page).
     await respectDelay(host, minDelayMs);
-    const boot = await fetch(cookieBootstrapUrl, {
-      headers: { "User-Agent": env.SOURCE_FETCH_USER_AGENT },
-      signal: AbortSignal.timeout(timeoutMs),
-      redirect: "follow",
-    });
-    storeCookies(host, boot);
+    await fetchFollowingRedirects(cookieBootstrapUrl, { "User-Agent": env.SOURCE_FETCH_USER_AGENT, Accept: "text/html" }, timeoutMs);
   }
 
   let attempt = 0;
@@ -97,7 +122,7 @@ export async function politeFetch(url: string, options: PoliteFetchOptions = {})
 
     let response: Response;
     try {
-      response = await fetch(url, { method, headers, signal: AbortSignal.timeout(timeoutMs), redirect: "follow" });
+      response = await fetchFollowingRedirects(url, headers, timeoutMs, method);
     } catch (error) {
       if (attempt > retries) throw new Error(`Fetch failed for ${url}: ${error instanceof Error ? error.message : String(error)}`);
       await sleep(1000 * 2 ** (attempt - 1));

@@ -154,6 +154,38 @@ pnpm query "Wie lange muss ich in Deutschland leben?" --tier 1 --k 8   # debug r
 
 Ingestion runs on your machine or in GitHub Actions against the Supabase session pooler; the deployed app only reads.
 
+## Sources
+
+All sources live in [`src/sources/registry.ts`](src/sources/registry.ts). Tier 1 = law, tier 2 = federal authorities, tier 3 = Land authorities, tier 4 = community (Step 11).
+
+| Source id | Tier | Kind | Publisher / scope | Cadence | Notes |
+|---|---|---|---|---|---|
+| `stag` | 1 | law XML | gesetze-im-internet.de | 7 d | full Staatsangehörigkeitsgesetz |
+| `gg` | 1 | law XML | gesetze-im-internet.de | 7 d | Art. 16, 116 only |
+| `aufenthg` | 1 | law XML | gesetze-im-internet.de | 7 d | residence-title §§ (4–9c, 18c–19c, 23–30, 38a, 51) |
+| `freizuegg` | 1 | law XML | gesetze-im-internet.de | 7 d | §§ 2, 4a, 5 |
+| `einbtestv` | 1 | law XML | gesetze-im-internet.de | 30 d | Einbürgerungstestverordnung |
+| `bgbl-2024-104`, `bgbl-2025-256`, `bgbl-2025-364`, `bgbl-2026-221` | 1 | PDF | Bundesgesetzblatt | 90 d | amending acts; crawl delay 30 s |
+| `bmi-staatsangehoerigkeit-de`, `bmi-nationality-en` | 2 | HTML | BMI, federal | 14 d | cookie bootstrap, crawl delay 10 s; the reform FAQ lags behind the law |
+| `bmi-ah-stag-2025` | 2 | PDF | BMI, federal | 30 d | Anwendungshinweise, Stand 1 May 2025 (before the 3-year-track repeal), split by numbering |
+| `bva-staatsangehoerigkeit-de`, `bva-citizenship-en` | 2 | HTML | BVA, federal | 14 d | naturalisation from abroad, § 5 declaration, Art. 116 (2) GG, § 15, Feststellung |
+| `bva-merkblaetter-de`, `bva-merkblatt-anspruch-en` | 2 | PDF | BVA, federal | 30 d | information sheets |
+| `bamf-einbuergerungstest-de`, `bamf-naturalisation-test-en` | 2 | HTML | BAMF, federal | 30 d | the naturalisation test |
+| `integrationsbeauftragte-einbuergerung`, `integrationsbeauftragte-broschueren` | 2 | HTML, PDF | Integrationsbeauftragte, federal | 30 d | incl. brochure "Mein Weg zum deutschen Pass" (Oct 2025) |
+| `einbuergerung-de-portal-de`, `einbuergerung-de-portal-en` | 2 | HTML | Bundesregierung portal einbürgerung.de | 30 d | FAQ |
+| `bamf-gesamtfragenkatalog` | 2 | PDF | BAMF | 90 d | **disabled** (9 MB test-question catalogue) |
+| `berlin-lea-einbuergerung`, `berlin-service-einbuergerung` | 3 | HTML | Land Berlin (LEA) | 14 d | `jurisdictionScope: Berlin` |
+
+Excluded on purpose: make-it-in-germany.com (bot captcha), the official English StAG translation (stale, still contains the repealed 3-year track), StAR-VwV 2000 (obsolete).
+
+### Adding a source
+
+1. Fetch the URL once by hand (`curl -A "<your UA>" -I <url>`) and check robots.txt for a `Crawl-delay`; note whether a cookie bootstrap is needed (BMI) and which selector holds the main content (`#content`, `main`, …).
+2. Add an entry to `src/sources/registry.ts`: `id` (lowercase slug), `tier`, `kind` (`gii-law` | `html-page` | `pdf`), `title`, `publisher`, `url`, `lang`, `jurisdictionScope`, `refreshCadenceDays`, and the kind-specific `options` (law: `lawAbbrev`, `slug`, optional `includeSections`; pages/PDFs: `urls`, `contentSelector`, `cookieBootstrapUrl`, `crawlDelayMs`, `standOverride`).
+3. `pnpm test` (the registry is validated: unique ids, https URLs, schema).
+4. `pnpm ingest --source <id>` and inspect the result with `pnpm sources:status` and `pnpm query "…" --tier <n>`.
+5. If the page has no "Stand:" line, the `Last-Modified` header or the fetch date is used as the as-of date; set `standOverride` for PDFs with a known date.
+
 ## RAG data model
 
 Everything the agent retrieves is a **chunk**: a piece of text with a vector and a metadata object. The metadata is what makes citations, tier ranking, freshness and the old-law feature possible.
@@ -188,7 +220,7 @@ Integration tests for the repositories run against a throwaway schema when `TEST
 - [x] Step 4 – Supabase Postgres + pgvector: Mastra storage/vectors, pools, migrations
 - [x] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
 - [x] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
-- [ ] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
+- [x] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
 - [ ] Step 8 – Retrieval tools with code-enforced hierarchy
 - [ ] Step 9 – Agent v1: instructions, tools, CitationGuard, sources UI
 - [ ] Step 10 – Historical law versions and outdated-rule awareness

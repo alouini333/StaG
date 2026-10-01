@@ -19,6 +19,7 @@ import { parseGiiLaw } from "../../sources/parsers/gii-norm";
 import { enabledSources, getSource } from "../../sources/registry";
 import type { Chunk, SourceDefinition } from "../../sources/types";
 import { vectorIndexName } from "../config/models";
+import { ingestHtmlPages, ingestPdfs } from "./ingest-documents";
 import { ingestionDeps } from "./ingestion-deps";
 
 const triggerSchema = z.enum(["cli", "schedule", "api"]);
@@ -86,8 +87,12 @@ const ingestSource = createStep({
       switch (source.kind) {
         case "gii-law":
           return await ingestGiiLaw(source, inputData.force);
+        case "html-page":
+          return await ingestHtmlPages(source, inputData.force);
+        case "pdf":
+          return await ingestPdfs(source, inputData.force);
         default:
-          throw new Error(`Source kind "${source.kind}" is not implemented yet (step 7+)`);
+          throw new Error(`Source kind "${source.kind}" is not implemented yet (steps 10–11)`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -166,7 +171,7 @@ async function ingestGiiLaw(source: Extract<SourceDefinition, { kind: "gii-law" 
 
   const vectors = await embedDocuments(
     chunks.map((c) => c.text),
-    { onProgress: (done, total) => log(`${source.id}: embedded ${done}/${total}`), batchDelayMs: 500 },
+    { onProgress: (done, total) => log(`${source.id}: embedded ${done}/${total}`)},
   );
 
   // Archive the previous consolidated version (never delete law text).
@@ -217,7 +222,7 @@ async function ingestGiiLaw(source: Extract<SourceDefinition, { kind: "gii-law" 
       indexName,
       ids: batch.map((c) => c.id),
       vectors: vectors.slice(offset, offset + batch.length),
-      metadata: batch.map((c) => c.metadata),
+      metadata: batch.map((c) => ({ ...c.metadata, text: c.text })),
     });
   }
 

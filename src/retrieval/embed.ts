@@ -1,7 +1,8 @@
 import { embedMany, type EmbeddingModel } from "ai";
 import { EMBEDDING_DIMENSIONS, embeddingModel, modelIds } from "../mastra/config/models";
 
-export const EMBED_BATCH_SIZE = 100; // Gemini maxEmbeddingsPerCall
+/** Texts per embedMany call. Gemini allows 100, but the free tier counts every text against 100 requests/minute, so smaller paced batches are safer. */
+export const EMBED_BATCH_SIZE = Math.min(100, Math.max(1, Number(process.env.EMBED_BATCH_SIZE ?? 25)));
 
 type TaskType = "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY";
 
@@ -20,6 +21,13 @@ function providerOptions(taskType: TaskType, modelId: string) {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Gemini says e.g. "Please retry in 41.51952892s." on quota errors. */
+export function suggestedRetryMs(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const m = message.match(/retry in\s+([\d.]+)\s*s/i);
+  return m ? Math.ceil(Number(m[1]) * 1000) + 1000 : null;
+}
 
 function isRetryable(error: unknown): boolean {
   const status = typeof error === "object" && error && "statusCode" in error ? Number(error.statusCode) : undefined;
@@ -46,7 +54,9 @@ export async function embedDocuments(texts: string[], options: EmbedOptions = {}
   const model = options.model ?? embeddingModel;
   const modelId = options.modelId ?? modelIds.embedding;
   const taskType = options.taskType ?? "RETRIEVAL_DOCUMENT";
-  const maxAttempts = options.maxAttempts ?? 5;
+  const maxAttempts = options.maxAttempts ?? 8;
+  // Free tier: 100 embed requests/minute and every text counts → default 25 texts every 16 s (~94/min).
+  const batchDelayMs = options.batchDelayMs ?? Number(process.env.EMBED_BATCH_DELAY_MS ?? 16_000);
   const vectors: number[][] = [];
 
   for (let offset = 0; offset < texts.length; offset += EMBED_BATCH_SIZE) {
@@ -70,11 +80,15 @@ export async function embedDocuments(texts: string[], options: EmbedOptions = {}
         break;
       } catch (error) {
         if (attempt >= maxAttempts || !isRetryable(error)) throw error;
-        await sleep(Math.min(30_000, 1000 * 2 ** attempt));
+        // A 429 means the per-minute window is exhausted; retrying sooner only re-consumes it.
+        const status = typeof error === "object" && error && "statusCode" in error ? Number(error.statusCode) : undefined;
+        const wait = suggestedRetryMs(error) ?? (status === 429 ? 61_000 : Math.min(60_000, 1000 * 2 ** attempt));
+        console.warn(`[embed] ${error instanceof Error ? error.message.split("\n")[0] : String(error)} – retrying in ${Math.round(wait / 1000)}s (attempt ${attempt}/${maxAttempts})`);
+        await sleep(wait);
       }
     }
     options.onProgress?.(Math.min(offset + batch.length, texts.length), texts.length);
-    if (options.batchDelayMs && offset + EMBED_BATCH_SIZE < texts.length) await sleep(options.batchDelayMs);
+    if (batchDelayMs > 0 && offset + EMBED_BATCH_SIZE < texts.length) await sleep(batchDelayMs);
   }
   return vectors;
 }

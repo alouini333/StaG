@@ -70,6 +70,14 @@ describe("helpers", () => {
     expect(sectionUrl("stag", "18-19", true)).toBe("https://www.gesetze-im-internet.de/stag/");
   });
 
+  it("prefers the 'Zuletzt geändert' entry when several Stand entries exist", () => {
+    const multi = xml.replace(
+      "<standangabe checked=\"ja\"><standtyp>Stand</standtyp><standkommentar>Zuletzt geändert durch Art. 3 G v. 21.7.2026 I Nr. 221</standkommentar></standangabe>",
+      "<standangabe checked=\"ja\"><standtyp>Neuf</standtyp><standkommentar>Neugefasst durch Bek. v. 25.2.2008 I 162;</standkommentar></standangabe><standangabe checked=\"ja\"><standtyp>Stand</standtyp><standkommentar>Zuletzt geändert durch Art. 3 G v. 21.7.2026 I Nr. 221</standkommentar></standangabe>",
+    );
+    expect(parseGiiLaw(multi, { slug: "stag" }).law.stand).toBe("Zuletzt geändert durch Art. 3 G v. 21.7.2026 I Nr. 221");
+  });
+
   it("parses the Stand date", () => {
     expect(standDateFromKommentar("Zuletzt geändert durch Art. 3 G v. 21.7.2026 I Nr. 221")).toBe("2026-07-21");
     expect(standDateFromKommentar("Neugefasst durch Bek. v. 1.3.2024 I Nr. 100")).toBe("2024-03-01");

@@ -30,6 +30,8 @@ const sourceBase = {
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "source id must be a lowercase slug"),
   tier: tierSchema,
   title: z.string().min(1),
+  /** Issuing body shown in chunk headers and citations, e.g. "Bundesverwaltungsamt (BVA)". Defaults to the title. */
+  publisher: z.string().min(1).optional(),
   url: z.url(),
   lang: langSchema,
   jurisdictionScope: jurisdictionScopeSchema,
@@ -70,6 +72,9 @@ export const sourceDefinitionSchema = z.discriminatedUnion("kind", [
       urls: z.array(z.url()).min(1),
       /** Used when the PDF has no detectable "Stand:" line. */
       standOverride: z.string().min(1).optional(),
+      /** Section-numbering style for sectionRef detection ("ah-stag": "10.1.1" → "AH-StAG 2025 Nr. 10.1.1"). */
+      sectionNumbering: z.enum(["ah-stag"]).optional(),
+      cookieBootstrapUrl: z.url().optional(),
       crawlDelayMs: z.number().int().min(0).default(2000),
     }),
   }),
@@ -141,6 +146,8 @@ export const chunkMetadataSchema = z
     /** True for archived law versions and the "old rule" part of change notes. */
     historical: z.boolean().default(false),
     community: communityMetadataSchema.optional(),
+    /** The chunk text itself; pgvector rows have no text column, so retrieval reads it from here (Mastra convention). */
+    text: z.string().optional(),
   })
   .superRefine((m, ctx) => {
     if (m.tier === 4 && !m.community) {

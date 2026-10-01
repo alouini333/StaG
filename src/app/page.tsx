@@ -1,8 +1,20 @@
+import { Chat } from "@/components/Chat";
+
 export default function Home() {
   return (
-    <main className="placeholder">
-      <h1>Einbürgerung / German citizenship assistant</h1>
-      <p>Der Chat folgt in Schritt 3. / Chat coming in Step 3.</p>
-    </main>
+    <>
+      <Chat />
+      <footer className="disclaimer">
+        <p>
+          <strong>Hinweis:</strong> Dieser Assistent liefert allgemeine Informationen, keine Rechtsberatung. Das
+          Staatsangehörigkeitsrecht kann sich ändern. Klären Sie Ihren Einzelfall mit der zuständigen Einbürgerungsbehörde
+          oder einer Anwältin / einem Anwalt.
+        </p>
+        <p>
+          <strong>Note:</strong> This assistant provides general information, not legal advice. Citizenship law can change.
+          Confirm your individual case with the competent naturalisation authority (Einbürgerungsbehörde) or a lawyer.
+        </p>
+      </footer>
+    </>
   );
 }

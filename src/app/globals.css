@@ -37,3 +37,174 @@ body {
   padding: 2rem 1rem;
   text-align: center;
 }
+
+/* ---------- layout ---------- */
+.chat,
+.login-page,
+.disclaimer {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 7rem);
+}
+
+.chat-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.chat-header h1 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.chat-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  overflow-y: auto;
+}
+
+.chat-empty,
+.chat-status {
+  opacity: 0.7;
+  font-size: 0.95rem;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: #1f5eff;
+  color: #fff;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.bubble-role {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.75;
+  margin-bottom: 0.2rem;
+}
+
+.chat-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #d33;
+  border-radius: 8px;
+  color: #d33;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding-top: 0.75rem;
+  border-top: 1px solid #d0d0d0;
+}
+
+.chat-input textarea {
+  flex: 1;
+  resize: vertical;
+  font: inherit;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #bbb;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button {
+  font: inherit;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #1f5eff;
+  background: #1f5eff;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-actions button,
+.chat-error button {
+  background: transparent;
+  color: inherit;
+  border-color: #999;
+}
+
+.disclaimer {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  border-top: 1px solid #d0d0d0;
+}
+
+/* ---------- login ---------- */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 420px;
+}
+
+.login h1 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.login input {
+  font: inherit;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #bbb;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.error {
+  color: #d33;
+  margin: 0;
+}

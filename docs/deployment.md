@@ -2,6 +2,12 @@
 
 The app deploys from GitHub on every push: `main` → production, any other branch → preview deployment.
 
+**Current setup (done 2026-10-01 via the CLI):** Vercel project `stag` (team `alouini333s-projects`), connected to `github.com/alouini333/StaG`.
+
+- Production: https://stag-lac.vercel.app (also `stag-alouini333s-projects.vercel.app`, `stag-git-main-alouini333s-projects.vercel.app`)
+- Environment variables set for Production and Preview: `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_CHAT_MODEL`, `GEMINI_UTILITY_MODEL`, `GEMINI_EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `APP_PASSWORD`, `AUTH_SECRET` (separate random value per environment), `COMMUNITY_PROVIDER`, `STALE_AFTER_DAYS`.
+- `vercel link` wrote `.vercel/` (gitignored) and `.env.local` containing only a `VERCEL_OIDC_TOKEN` (gitignored).
+
 ## One-time setup
 
 ### Option A – Vercel CLI (no global install needed)

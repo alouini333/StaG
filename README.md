@@ -59,7 +59,7 @@ The whole app is behind one shared password:
 
 ### Deploy
 
-Pushing to `main` deploys to Vercel; other branches get preview URLs. One-time project setup and the environment variable list are in [docs/deployment.md](docs/deployment.md).
+Pushing to `main` deploys to Vercel (production: https://stag-lac.vercel.app); other branches get preview URLs. One-time project setup and the environment variable list are in [docs/deployment.md](docs/deployment.md).
 
 ## Configuration
 

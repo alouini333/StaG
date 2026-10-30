@@ -16,7 +16,8 @@
     "db:init": "tsx scripts/db-init.ts",
     "ingest": "tsx scripts/ingest.ts",
     "sources:status": "tsx scripts/sources-status.ts",
-    "query": "tsx scripts/query.ts"
+    "query": "tsx scripts/query.ts",
+    "eval": "tsx evals/run-evals.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.87",

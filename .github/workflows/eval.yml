@@ -1,0 +1,32 @@
+name: eval
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Only cases whose id contains this text"
+        required: false
+        default: ""
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@12.8.1 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm eval ${{ inputs.filter && format('--filter {0}', inputs.filter) || '' }}
+        env:
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_SESSION }}
+          DATABASE_URL_SESSION: ${{ secrets.DATABASE_URL_SESSION }}
+          MASTRA_DISABLE_STORAGE_INIT: "true"
+          APP_PASSWORD: "ci-unused"
+          AUTH_SECRET: "ci-unused-ci-unused-ci-unused-ci-unused"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: evals/reports/

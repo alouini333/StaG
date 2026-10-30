@@ -24,6 +24,35 @@ Answers are grounded in four tiers, and the retrieval code enforces the order:
 3. **Landesbehörde oder Institution / Land authority or other institution** – e.g. Berlin LEA
 4. **Community (r/GermanCitizenship)** – experience reports, secondary, clearly labelled, never overriding the law
 
+## RAG: how the agent knows what it knows
+
+This assistant is a **retrieval-augmented** agent. The language model never answers from memory about the law; it answers from documents that were fetched from official sources, stored in a vector database, and retrieved for each question. The system prompt contains no legal facts at all (a test enforces that), so when the law changes only the data changes, not the code.
+
+```
+                    ingestion (scripts / GitHub Actions)                       question time (web app)
+ ┌──────────────────────────────────────────────────────────┐    ┌────────────────────────────────────────────────┐
+ │ registry of sources (tiers 1–3)                           │    │ user question (DE or EN)                        │
+ │   → fetch (polite, conditional)                           │    │   → agent calls searchCitizenshipSources        │
+ │   → detect change (hash / builddate; skip if unchanged)   │    │       → embed the German query                  │
+ │   → parse (law XML per §, HTML → Markdown, PDF text)      │    │       → pgvector search, current versions only  │
+ │   → chunk (per §/Absatz, per heading)                     │    │       → order law → authority → Land            │
+ │   → embed with Gemini (768 dims)                          │    │       → flag outdated pages, inject cited law   │
+ │   → upsert vector + metadata into Supabase                │    │       → community (tier 4) only if gated open   │
+ │   → archive the previous law version (never delete)      │    │   → lookupStatute for exact § wording           │
+ └──────────────────────────────────────────────────────────┘    │   → answer with [S1] citations in the user's    │
+                                                                  │     language; CitationGuard removes anything    │
+                                                                  │     not backed by a retrieved source            │
+                                                                  └────────────────────────────────────────────────┘
+```
+
+**What is stored.** Each chunk is a passage of text (one § of a law, one section of an official page or PDF) plus a 768-dimensional embedding and a metadata object: source, tier, title, deep link, citation (`§ 10 Abs. 3 StAG`), the source's as-of date (`Stand`), the law version and its validity period, and whether it is historical. The text itself is stored next to the vector, so retrieval returns passages the model can quote.
+
+**What is retrieved.** The question is embedded with the same model and compared by cosine similarity. The top passages are then re-ordered by authority rather than by score alone, deduplicated, flagged when they predate the current law, and numbered `S1…Sn`. Repealed provisions stay visible as "(weggefallen)" and split sections carry an outline of all their Absätze, so the model can see what no longer exists.
+
+**Why this beats a static prompt.** The StAG changed three times between June 2024 and July 2026 and official FAQ pages lag behind. A scheduled job (Step 12) re-fetches the sources, re-embeds only what changed and archives previous law versions; the agent's instructions receive the live index date, and the UI shows it.
+
+Details: [Feeding the agent](#feeding-the-agent-rag) · [Sources](#sources) · [How retrieval decides what to show](#how-retrieval-decides-what-to-show) · [How the agent answers](#how-the-agent-answers) · [RAG data model](#rag-data-model)
+
 ## Run locally
 
 ```bash

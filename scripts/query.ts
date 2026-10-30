@@ -1,40 +1,40 @@
 /**
- * Debug retrieval. Usage:
- *   pnpm query "Wie lange muss ich in Deutschland leben?" [--tier 1,2,3] [--k 8] [--historical]
+ * Debug retrieval through the same hierarchical search the agent uses.
+ *   pnpm query "Wie lange muss ich in Deutschland leben?" [--intent legal|procedural|experience|mixed] [--en "english query"] [--lang de|en]
  */
 import "dotenv/config";
-import { closePools } from "../src/db/pool";
+import { closePools, getPool } from "../src/db/pool";
+import { createCommunityProvider } from "../src/community/provider";
+import { env } from "../src/env";
 import { vectorIndexName } from "../src/mastra/config/models";
 import { embedQuery } from "../src/retrieval/embed";
+import { searchSources } from "../src/retrieval/search";
 import { createVectorStore } from "../src/retrieval/vector-store";
-import type { ChunkMetadata } from "../src/sources/types";
-import { listFlag, parseArgs } from "./_cli";
+import { parseArgs } from "./_cli";
 
 async function main() {
   const { flags, positional } = parseArgs(process.argv.slice(2));
   const question = positional.join(" ").trim();
-  if (!question) throw new Error('Usage: pnpm query "<question>" [--tier 1,2,3] [--k 8] [--historical]');
-  const tiers = (listFlag(flags.tier) ?? ["1", "2", "3"]).map(Number);
-  const topK = Number(flags.k ?? 8);
-  const includeHistorical = flags.historical === true;
+  if (!question) throw new Error('Usage: pnpm query "<question>" [--intent legal|procedural|experience|mixed] [--en "…"] [--lang de|en]');
+  const intent = (typeof flags.intent === "string" ? flags.intent : "mixed") as "legal" | "procedural" | "experience" | "mixed";
+  const lang = (typeof flags.lang === "string" ? flags.lang : "de") as "de" | "en";
 
   const store = createVectorStore("session");
-  const vector = await embedQuery(question);
-  const results = await store.query({
-    indexName: vectorIndexName(),
-    queryVector: vector,
-    topK,
-    filter: includeHistorical ? { tier: { $in: tiers } } : { tier: { $in: tiers }, historical: false },
-  });
+  const result = await searchSources(
+    { queryDe: question, queryEn: typeof flags.en === "string" ? flags.en : question, intent, lang },
+    { store, db: getPool("session"), embed: embedQuery, community: createCommunityProvider(env.COMMUNITY_PROVIDER), indexName: vectorIndexName() },
+  );
 
-  console.log(`\nQuery: ${question}\nIndex: ${vectorIndexName()}  tiers: ${tiers.join(",")}  topK: ${topK}\n`);
-  results.forEach((r, i) => {
-    const m = r.metadata as ChunkMetadata;
-    const excerpt = ((r.document as string | undefined) ?? "").replace(/\s+/g, " ").slice(0, 200);
-    console.log(`${String(i + 1).padStart(2)}. score=${r.score.toFixed(4)} tier=${m.tier} ${m.sectionRef ?? m.title}${m.historical ? " [HISTORICAL]" : ""}`);
-    console.log(`    stand: ${m.stand ?? "-"} | ${m.url}`);
-    if (excerpt) console.log(`    ${excerpt}…`);
-  });
+  console.log(`\nQuery: ${question}  (intent: ${intent})`);
+  console.log(`Coverage: ${result.coverage} | community: ${result.communityIncluded ? "INCLUDED" : "not included"} – ${result.communityReason} (provider: ${result.communityProvider})`);
+  const s = result.indexStatus;
+  console.log(`Index: last ingested ${s.lastIngestedAt ?? "never"} (${s.indexAgeDays ?? "?"} days, ${s.stale ? "STALE" : "fresh"}); laws: ${s.laws.map((l) => `${l.lawAbbrev} ${l.standDate ?? "?"}`).join(", ")}\n`);
+  for (const r of [...result.official, ...result.community]) {
+    const flags = [r.possiblyOutdated ? "POSSIBLY OUTDATED" : "", r.historical ? "HISTORICAL" : "", r.jurisdictionScope !== "federal" ? r.jurisdictionScope : ""].filter(Boolean).join(", ");
+    console.log(`[${r.citationId}] tier ${r.tier} (${r.tierLabel}) score=${r.score} ${r.sectionRef ?? r.title}${flags ? ` {${flags}}` : ""}`);
+    console.log(`      ${r.stand ?? ""} | ${r.url}`);
+    console.log(`      ${r.excerpt.replace(/\s+/g, " ").slice(0, 180)}…`);
+  }
   await store.disconnect();
 }
 

@@ -208,3 +208,92 @@ button:disabled {
   color: #d33;
   margin: 0;
 }
+
+/* ---------- sources & citations ---------- */
+.cite {
+  font-size: 0.78em;
+  vertical-align: super;
+  text-decoration: none;
+  color: #1f5eff;
+  margin-left: 1px;
+}
+
+.sources {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(127, 127, 127, 0.4);
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+.sources h3,
+.sources h4 {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+.sources ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.source {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.35rem 0.5rem;
+  padding: 0.25rem 0;
+  align-items: baseline;
+}
+
+.source-id {
+  font-weight: 600;
+}
+
+.source-tier {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  border: 1px solid currentColor;
+}
+
+.tier-law .source-tier { color: #0a7a3a; }
+.tier-federal .source-tier { color: #1f5eff; }
+.tier-land .source-tier { color: #8a4b00; }
+.tier-community .source-tier { color: #7a1fa2; }
+
+.source-meta {
+  grid-column: 2 / span 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  opacity: 0.85;
+}
+
+.badge {
+  padding: 0 0.4rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+
+.badge-warn { background: #fff1c2; color: #6b4e00; }
+.badge-land { background: #e8f0ff; color: #1f3f8f; }
+.badge-community { background: #f3e6fa; color: #5a1a7a; }
+
+.sources-note { margin: 0.2rem 0; opacity: 0.8; }
+.sources-note.warn { color: #a05a00; }
+
+.index-status {
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin: 0.4rem 0 0;
+}
+
+.index-status.warn { color: #a05a00; }
+.muted { opacity: 0.6; }
+
+@media (prefers-color-scheme: dark) {
+  .badge-warn { background: #4a3b00; color: #ffe08a; }
+  .badge-land { background: #15264d; color: #bcd0ff; }
+  .badge-community { background: #3a1a4d; color: #e4c2f7; }
+}

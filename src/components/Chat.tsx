@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 import { CHAT_ERROR_TEXT, type ChatErrorCode } from "@/chat/errors";
+import { IndexStatusBanner } from "./IndexStatusBanner";
 import { MessageBubble } from "./MessageBubble";
 
 export function Chat() {
@@ -58,6 +59,8 @@ export function Chat() {
         </div>
       </header>
 
+      <IndexStatusBanner />
+
       <div className="chat-messages" aria-live="polite">
         {messages.length === 0 ? (
           <p className="chat-empty">
@@ -65,8 +68,8 @@ export function Chat() {
             Ask a question about German citizenship or naturalisation, in German or English.
           </p>
         ) : null}
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+        {messages.map((message, i) => (
+          <MessageBubble key={message.id} message={message} streaming={busy && i === messages.length - 1} />
         ))}
         {status === "submitted" ? <p className="chat-status">Denkt nach… / Thinking…</p> : null}
       </div>

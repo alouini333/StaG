@@ -22,7 +22,7 @@ Answers are grounded in four tiers, and the retrieval code enforces the order:
 1. **Gesetz / Law** – federal law from gesetze-im-internet.de (StAG, GG, AufenthG, …), archived per version
 2. **Bundesbehörde / Federal authority** – BMI, BVA, BAMF, Integrationsbeauftragte, Bundesgesetzblatt
 3. **Landesbehörde oder Institution / Land authority or other institution** – e.g. Berlin LEA
-4. **Community (r/GermanCitizenship)** – experience reports, secondary, clearly labelled, never overriding the law
+4. **Community** – reserved for experience reports (secondary, clearly labelled, never overriding the law); currently disabled, no provider configured
 
 ## RAG: how the agent knows what it knows
 
@@ -104,9 +104,8 @@ Copy `.env.example` to `.env` and fill in what you have. Empty values (`KEY=`) a
 | `DATABASE_URL`, `DATABASE_URL_SESSION` | Step 4 | Supabase transaction / session pooler URLs |
 | `MASTRA_DISABLE_STORAGE_INIT` | default `false` | Skip Mastra's schema DDL at runtime (set `true` on Vercel) |
 | `APP_PASSWORD`, `AUTH_SECRET` | Step 3 | Shared password and cookie-signing secret |
-| `CRON_SECRET` | Step 12 | Protects `/api/cron/*` |
-| `COMMUNITY_PROVIDER` | default `none` | `none`, `notes` or `reddit` (tier 4) |
-| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` | if `reddit` | Official Reddit Data API credentials |
+| `CRON_SECRET` | Step 12 (later) | Protects `/api/cron/*` |
+| `COMMUNITY_PROVIDER` | default `none` | tier-4 community provider; only `none` is implemented |
 | `RETRIEVAL_RERANK`, `INPUT_GUARD` | default `false` | Optional reranking and prompt-injection guard |
 | `STALE_AFTER_DAYS` | default `30` | Warn when the source index is older than this |
 | `SOURCE_FETCH_USER_AGENT` | has default | Descriptive User-Agent for fetching official sites |
@@ -288,8 +287,8 @@ Integration tests for the repositories run against a throwaway schema when `TEST
 - [x] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
 - [x] Step 8 – Retrieval tools with code-enforced hierarchy
 - [x] Step 9 – Agent v1: instructions, tools, CitationGuard, sources UI
-- [ ] Step 10 – Historical law versions and outdated-rule awareness
-- [ ] Step 11 – Tier 4 community providers (curated notes, live Reddit)
-- [ ] Step 12 – Scheduled law-change check and ingestion, new-legislation alerts
+- [ ] Step 10 – Historical law versions and outdated-rule awareness (later)
+- ~~Step 11 – Tier 4 community providers (Reddit)~~ removed: Reddit's Data API requires approval and forbids retention; tier 4 stays a disabled no-op provider
+- [ ] Step 12 – Scheduled law-change check and ingestion, new-legislation alerts (later)
 - [ ] Step 13 – Evaluation suite
 - [ ] Step 14 – Hardening, deployment audit, release v0.1.0

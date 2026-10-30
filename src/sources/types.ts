@@ -9,7 +9,7 @@ const TIER_LABELS: Record<Tier, { de: string; en: string }> = {
   1: { de: "Gesetz", en: "Law" },
   2: { de: "Bundesbehörde", en: "Federal authority" },
   3: { de: "Landesbehörde oder Institution", en: "Land authority or other institution" },
-  4: { de: "Community (r/GermanCitizenship) – Erfahrungsberichte", en: "Community (r/GermanCitizenship) – reported experiences" },
+  4: { de: "Community – Erfahrungsberichte (nicht verbindlich)", en: "Community – reported experiences (not authoritative)" },
 };
 
 export function tierLabel(tier: Tier, lang: "de" | "en" = "de"): string {

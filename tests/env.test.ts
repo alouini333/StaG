@@ -48,21 +48,6 @@ describe("parseEnv", () => {
     );
   });
 
-  it("requires Reddit credentials only when the reddit provider is selected", () => {
-    expect(() => parseEnv({ ...minimal, COMMUNITY_PROVIDER: "reddit" })).toThrowError(
-      /REDDIT_CLIENT_ID/,
-    );
-    expect(() =>
-      parseEnv({
-        ...minimal,
-        COMMUNITY_PROVIDER: "reddit",
-        REDDIT_CLIENT_ID: "id",
-        REDDIT_CLIENT_SECRET: "secret",
-        REDDIT_USER_AGENT: "web:stag:0.1 (by /u/someone)",
-      }),
-    ).not.toThrow();
-    expect(() => parseEnv({ ...minimal, COMMUNITY_PROVIDER: "notes" })).not.toThrow();
-  });
 });
 
 describe("parseEnv with a .env copied from .env.example", () => {

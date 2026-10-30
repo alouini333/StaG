@@ -6,8 +6,7 @@ import { z } from "zod";
 
 const bool = z.stringbool().default(false);
 
-export const envSchema = z
-  .object({
+export const envSchema = z.object({
     // Google Gemini
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1, "Gemini API key is required"),
     GEMINI_CHAT_MODEL: z.string().min(1).default("gemini-3.8-flash"),
@@ -29,11 +28,8 @@ export const envSchema = z
     AUTH_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
 
-    // Community sources, tier 4
-    COMMUNITY_PROVIDER: z.enum(["none", "notes", "reddit"]).default("none"),
-    REDDIT_CLIENT_ID: z.string().min(1).optional(),
-    REDDIT_CLIENT_SECRET: z.string().min(1).optional(),
-    REDDIT_USER_AGENT: z.string().min(1).optional(),
+    // Community sources, tier 4 (disabled: only the no-op provider exists)
+    COMMUNITY_PROVIDER: z.enum(["none"]).default("none"),
 
     // Retrieval and safety switches
     RETRIEVAL_RERANK: bool,
@@ -43,19 +39,6 @@ export const envSchema = z
       .string()
       .min(1)
       .default("StaG-citizenship-assistant/0.1 (+https://github.com/alouini333/StaG)"),
-  })
-  .superRefine((values, ctx) => {
-    if (values.COMMUNITY_PROVIDER === "reddit") {
-      for (const key of ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"] as const) {
-        if (!values[key]) {
-          ctx.addIssue({
-            code: "custom",
-            path: [key],
-            message: `${key} is required when COMMUNITY_PROVIDER=reddit`,
-          });
-        }
-      }
-    }
   });
 
 export type Env = z.infer<typeof envSchema>;

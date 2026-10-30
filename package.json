@@ -23,6 +23,7 @@
     "@ai-sdk/react": "^4.0.129",
     "@mastra/ai-sdk": "^1.10.5",
     "@mastra/core": "1.72.0",
+    "@mastra/evals": "^1.10.9",
     "@mastra/loggers": "1.3.3",
     "@mastra/pg": "^1.28.0",
     "@mastra/rag": "^2.6.5",

@@ -25,7 +25,7 @@ export class NoopCommunityProvider implements CommunityProvider {
   }
 }
 
-/** Step 11 adds the `notes` and `reddit` providers; until then every setting maps to Noop. */
+/** No community provider is implemented (the Reddit step was dropped); every setting maps to Noop. */
 export function createCommunityProvider(providerId: CommunityProviderId): CommunityProvider {
   void providerId;
   return new NoopCommunityProvider();

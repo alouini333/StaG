@@ -18,8 +18,7 @@ const publishers = {
 /**
  * Curated list of sources. Adding a source = adding an entry here (see README
  * "Adding a source"). Crawl delays follow each site's robots.txt (BMI/BVA 10 s,
- * recht.bund.de 30 s). Reddit is NOT a registry source: it is a live
- * CommunityProvider (Step 11).
+ * recht.bund.de 30 s). Tier 4 (community) has no source here: the provider is a disabled no-op.
  *
  * Deliberately excluded: make-it-in-germany.com (bot captcha for non-browser
  * clients), the official English StAG translation (stale: amendments only up to
@@ -203,7 +202,6 @@ const definitions: SourceDefinitionInput[] = [
     options: { urls: ["https://service.berlin.de/dienstleistung/318998/"], crawlDelayMs: 3000 },
   },
   // TODO Step 10: `stag-changes` (law-change-seed, data/law-changes/stag.json).
-  // TODO Step 11: `community-notes` (data/community/**/*.md).
 ];
 
 /** Validates every entry and rejects duplicate IDs. Throws with a readable message. */

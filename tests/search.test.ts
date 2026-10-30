@@ -90,6 +90,19 @@ describe("searchSources", () => {
     expect(result.official[0].tier).toBe(1); // law listed before the page that cites it
   });
 
+  it("appends an outline of all Absätze to split-section law chunks", async () => {
+    const { sectionOutline } = await import("@/retrieval/search");
+    expect(sectionOutline("§ 10 StAG", "(1) Ein Ausländer, der seit fünf Jahren …\n\n(2) Der Ehegatte …\n\n(3) (weggefallen)\n\n(3a) (weggefallen)\n\n(4) Die Voraussetzungen …")).toBe(
+      "Übersicht aller Absätze von § 10 StAG: (1) Ein Ausländer, der seit fünf Jahren … | (2) Der Ehegatte … | (3) (weggefallen – aufgehoben) | (3a) (weggefallen – aufgehoben) | (4) Die Voraussetzungen …",
+    );
+    expect(sectionOutline("§ 1 StAG", "Deutscher ist, wer …")).toBe("");
+    const long = `StAG § 10 (Stand: X)\n\n(1) ${"Ein Ausländer, der seit fünf Jahren … ".repeat(60)}`;
+    const abs1 = { ...row("10", 1, 0.7, "2026-07-21", long), metadata: { ...row("10", 1, 0.7, "2026-07-21").metadata, sectionRef: "§ 10 Abs. 1 StAG", text: long } };
+    const result = await searchSources({ queryDe: "drei Jahre", queryEn: "three years", intent: "legal" }, deps([abs1], spyProvider("none")));
+    expect(result.official[0].excerpt.startsWith("StAG § 10 (Stand: X)\nÜbersicht aller Absätze von § 10 StAG:")).toBe(true);
+    expect(result.official[0].excerpt).toContain("(3) (weggefallen – aufgehoben)");
+  });
+
   it("drops rows without stored text", async () => {
     const r = row("10", 1, 0.7, "2026-07-21");
     delete (r.metadata as { text?: string }).text;

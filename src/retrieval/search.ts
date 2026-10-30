@@ -87,6 +87,41 @@ export async function getIndexStatus(db: Queryable, now = new Date()): Promise<I
   };
 }
 
+/**
+ * A long § is split into several chunks; a retrieved "§ 10 Abs. 1" chunk alone
+ * hides that "(3) (weggefallen)" exists further down. Append a one-line outline
+ * of all Absätze (repealed ones marked) so the model sees the whole section.
+ */
+export function sectionOutline(sectionRef: string, text: string): string {
+  const parts = text.split(/\n\n(?=\(\d+[a-z]?\)\s)/).filter((p) => /^\(\d+[a-z]?\)\s/.test(p));
+  if (parts.length < 2) return "";
+  const items = parts.map((p) => {
+    const n = p.match(/^\((\d+[a-z]?)\)/)?.[1] ?? "?";
+    if (/^\(\d+[a-z]?\)\s*\(weggefallen\)/i.test(p)) return `(${n}) (weggefallen – aufgehoben)`;
+    const body = p.replace(/^\(\d+[a-z]?\)\s*/, "").replace(/\s+/g, " ");
+    return `(${n}) ${body.slice(0, 70)}${body.length > 70 ? "…" : ""}`;
+  });
+  return `Übersicht aller Absätze von ${sectionRef}: ${items.join(" | ")}`;
+}
+
+async function appendSectionOutlines(db: Queryable, results: Array<RetrievedChunk & { possiblyOutdated: boolean }>): Promise<void> {
+  const done = new Set<string>();
+  for (const r of results) {
+    const m = r.metadata.tier === 1 && r.metadata.lawAbbrev ? r.metadata.sectionRef?.match(/^(§ (\d+[a-z]?)) Abs\. \d+[a-z]?/) : null;
+    if (!m) continue;
+    const key = `${r.metadata.lawAbbrev}|${m[2]}`;
+    if (done.has(key)) continue;
+    done.add(key);
+    const section = await getLawSection(db, r.metadata.lawAbbrev!, m[2].toLowerCase()).catch(() => null);
+    if (!section) continue;
+    const outline = sectionOutline(`${m[1]} ${r.metadata.lawAbbrev}`, section.text);
+    if (!outline) continue;
+    // Insert after the header line: excerpts are truncated, so the outline must come first.
+    const nl = r.text.indexOf("\n");
+    r.text = nl > 0 ? `${r.text.slice(0, nl)}\n${outline}\n${r.text.slice(nl)}` : `${outline}\n\n${r.text}`;
+  }
+}
+
 async function linkedLawChunks(db: Queryable, results: RetrievedChunk[], status: IndexStatus): Promise<RetrievedChunk[]> {
   const present = new Set(results.filter((r) => r.metadata.tier === 1).map((r) => `${r.metadata.lawAbbrev}|${(r.metadata.sectionRef ?? "").replace(/\s?Abs\.\s?\d+[a-z]?/, "")}`));
   const extra: RetrievedChunk[] = [];
@@ -160,6 +195,7 @@ export async function searchSources(input: SearchInput, deps: SearchDeps = defau
   const deduped = dedupeBySection(retrieved);
   const linked = await linkedLawChunks(deps.db, deduped, indexStatus);
   const official = flagOutdated(orderOfficial(dedupeBySection([...deduped, ...linked])), lawStandDates);
+  await appendSectionOutlines(deps.db, official);
   const coverage = assessCoverage(official);
   const gate = shouldIncludeCommunity({ intent: input.intent, coverage });
 

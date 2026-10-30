@@ -4,26 +4,30 @@
  *   pnpm eval --no-llm         # deterministic scorers only
  *   pnpm eval --filter trap    # cases whose id contains "trap"
  *   pnpm eval --model gemini-3.8-flash   # override the chat model for this run
+ *   pnpm eval --delay 5000               # ms between cases (default 20000 for the free tier)
  * Writes evals/reports/<timestamp>.json and exits 1 when thresholds are missed.
  */
 import "dotenv/config";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { closePools } from "../src/db/pool";
 import { parseArgs, table } from "../scripts/_cli";
 import { DETERMINISTIC, type EvalRun, type Expectations } from "./scorers/deterministic";
-import { judgeFaithfulness } from "./scorers/judge";
 
 type GoldenCase = { id: string; lang: "de" | "en"; input: string; intent: string; expectations: Expectations };
 
 const THRESHOLDS = { deterministic: 0.9, faithfulness: 0.8 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const isQuota = (e: unknown) => /quota|429|rate limit|resource exhausted/i.test(e instanceof Error ? e.message : String(e));
 
 async function main() {
   const { flags } = parseArgs(process.argv.slice(2));
+  // The model override must be set before any src module parses the environment.
   if (typeof flags.model === "string") process.env.GEMINI_CHAT_MODEL = flags.model;
+  // Free tier: ~15 generate requests/minute per model; a case uses 2–4 calls plus the judge.
+  const delayMs = Number(flags.delay ?? process.env.EVAL_DELAY_MS ?? 20_000);
   const { mastra } = await import("../src/mastra");
   const { modelIds } = await import("../src/mastra/config/models");
+  const { judgeFaithfulness } = await import("./scorers/judge");
   const agent = mastra.getAgent("citizenshipAgent");
 
   const golden = JSON.parse(readFileSync(path.join(process.cwd(), "evals/golden.json"), "utf8")) as { cases: GoldenCase[] };
@@ -38,17 +42,25 @@ async function main() {
 
   for (const c of cases) {
     const started = Date.now();
-    let run: EvalRun;
-    try {
-      const result = await agent.generate(c.input);
-      const toolResults = result.steps.flatMap((s) => ((s as unknown as { toolResults?: Array<Record<string, unknown>> }).toolResults ?? []));
-      run = {
-        text: result.text,
-        toolOutputs: toolResults.map((t) => t.output ?? t.result ?? t.payload ?? t),
-        toolNames: [...new Set(toolResults.map((t) => String(t.toolName ?? "")).filter(Boolean))],
-      };
-    } catch (error) {
-      run = { text: `ERROR: ${error instanceof Error ? error.message : String(error)}`, toolOutputs: [], toolNames: [] };
+    let run: EvalRun = { text: "", toolOutputs: [], toolNames: [] };
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await agent.generate(c.input);
+        const toolResults = result.steps.flatMap((s) => ((s as unknown as { toolResults?: Array<Record<string, unknown>> }).toolResults ?? []));
+        run = {
+          text: result.text,
+          toolOutputs: toolResults.map((t) => t.output ?? t.result ?? t.payload ?? t),
+          toolNames: [...new Set(toolResults.map((t) => String(t.toolName ?? "")).filter(Boolean))],
+        };
+        break;
+      } catch (error) {
+        if (isQuota(error) && attempt < 3) {
+          console.log(`${c.id}: quota hit, waiting 65s (attempt ${attempt})`);
+          await sleep(65_000);
+          continue;
+        }
+        run = { text: `ERROR: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`, toolOutputs: [], toolNames: [] };
+      }
     }
 
     const scores: Record<string, { score: number; reason: string }> = {};
@@ -69,7 +81,7 @@ async function main() {
     const failed = Object.entries(scores).filter(([, r]) => r.score < 1).map(([n]) => n);
     rows.push({ case: c.id, lang: c.lang, tools: run.toolNames.join("+") || "-", failed: failed.join(",") || "ok", faithfulness: judge ? judge.faithfulness.toFixed(2) : "", ms: Date.now() - started, text: run.text, scores, judge });
     console.log(`${c.id.padEnd(24)} ${failed.length ? "FAIL " + failed.join(",") : "ok"}${judge ? ` faithfulness=${judge.faithfulness.toFixed(2)}` : ""}`);
-    await sleep(1500);
+    await sleep(delayMs);
   }
 
   const averages = Object.fromEntries(Object.entries(perScorer).map(([k, v]) => [k, v.reduce((a, b) => a + b, 0) / v.length]));
@@ -95,4 +107,7 @@ main()
     console.error(error instanceof Error ? error.stack ?? error.message : error);
     process.exitCode = 1;
   })
-  .finally(() => closePools());
+  .finally(async () => {
+    const { closePools } = await import("../src/db/pool");
+    await closePools();
+  });

@@ -1,18 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./auth/constants";
+import { isPublicPath } from "./auth/public-paths";
 import { verifySessionToken } from "./auth/session";
-
-/** Paths reachable without a session. `/api/cron/*` is protected by CRON_SECRET instead (Step 12). */
-const PUBLIC_PATHS = ["/login", "/api/login"];
-const PUBLIC_PREFIXES = ["/api/cron/"];
-
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (isPublic(pathname)) return NextResponse.next();
+  if (isPublicPath(pathname)) return NextResponse.next();
 
   // Read directly from process.env: src/env.ts is a server-only module with
   // broader requirements than the gate needs.

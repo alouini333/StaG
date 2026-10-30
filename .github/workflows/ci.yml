@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@12.8.1 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          GOOGLE_GENERATIVE_AI_API_KEY: ci-build-only
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          APP_PASSWORD: ci-build-only
+          AUTH_SECRET: ci-build-only-ci-build-only-ci-build-only
+      - run: pnpm audit:secrets

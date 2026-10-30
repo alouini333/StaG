@@ -17,7 +17,8 @@
     "ingest": "tsx scripts/ingest.ts",
     "sources:status": "tsx scripts/sources-status.ts",
     "query": "tsx scripts/query.ts",
-    "eval": "tsx evals/run-evals.ts"
+    "eval": "tsx evals/run-evals.ts",
+    "audit:secrets": "tsx scripts/secrets-audit.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.87",

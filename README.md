@@ -62,7 +62,7 @@ cp .env.example .env          # fill in the values you have
 pnpm dev                      # http://localhost:3000
 ```
 
-Useful commands: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+Useful commands: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm eval`, `pnpm audit:secrets`.
 
 Notes:
 - Node 22.x is the target (see `engines` in `package.json`); Next 16 uses `proxy.ts` (not `middleware.ts`) for request interception.
@@ -276,6 +276,32 @@ The vector index name encodes the embedding model and dimensions (`citizenship_g
 
 Integration tests for the repositories run against a throwaway schema when `TEST_DATABASE_URL` is set (for example the local pgvector container); otherwise they are skipped.
 
+## Evaluation
+
+`pnpm eval` runs the golden set in [`evals/golden.json`](evals/golden.json) (26 German and English questions with behavioural expectations: which tiers must be cited, which §§ must appear, whether the agent must ask for missing facts, label an old rule as repealed, decline off-topic requests, …) against the real agent and scores every answer:
+
+- deterministic scorers (no model calls): language match, citation validity, no raw URLs, tier usage, section references, clarification, Stand mention, outdated labelling, forbidden phrases, Land marker, tool usage, off-topic decline, community-not-as-fact;
+- an LLM judge (utility model) that extracts the factual claims of the answer and checks each against the retrieved excerpts (faithfulness).
+
+Flags: `--no-llm` (deterministic only), `--filter <id-part>`, `--model <gemini-id>`. The run prints a per-case table and averages, writes `evals/reports/<timestamp>.json` (gitignored) and exits non-zero when a deterministic average drops below 0.9 or faithfulness below 0.8. The GitHub workflow `eval` runs it on demand with the secrets configured in the repository.
+
+## Hardening and limits
+
+- **Gate:** every page and API route requires the signed session cookie except `/login`, `/api/login` and (later) `/api/cron/*`; a test enumerates all route files and fails if a new route is public by accident.
+- **Rate limits:** login 10 attempts / 10 min per IP, chat 20 requests / min per IP (in-memory, per serverless instance, best effort). Chat bodies are capped at 40 messages × 8,000 characters.
+- **Errors:** upstream model errors reach the browser only as short codes (`model_busy`, `rate_limited`, `timeout`, `model_error`); retrieval failures make the agent say it cannot verify instead of answering from memory.
+- **Guards:** `UnicodeNormalizer` always; `INPUT_GUARD=true` adds Mastra's LLM-based `PromptInjectionDetector` (one utility-model call per message).
+- **Secrets:** `pnpm audit:secrets` scans the built client bundles for secret names and the git history for env files; CI runs it after every build. `DATABASE_URL_SESSION` never goes to Vercel.
+- **Quota:** the Gemini free tier allows 100 embedding requests per minute; ingestion and chat share it, so run `pnpm ingest` when nobody is chatting (or use a paid key and set `EMBED_BATCH_DELAY_MS=0`).
+
+## Interview-day checklist
+
+1. Supabase project is **Active** (free projects pause after a week idle; restore takes a few minutes).
+2. `https://stag-lac.vercel.app/api/health` (after login) returns `db: ok` and a chunk count > 0.
+3. `GEMINI_CHAT_MODEL` on Vercel points to a model that is not overloaded (3.8 Flash is more reliable on the outdated-rule questions than Flash-Lite).
+4. `pnpm sources:status` shows no failed sources; `pnpm eval --no-llm` passes.
+5. Password set in Vercel (`APP_PASSWORD`) is the one you will type.
+
 ## Roadmap
 
 - [x] Step 1 – Git repository, GitHub remote and project structure
@@ -290,5 +316,5 @@ Integration tests for the repositories run against a throwaway schema when `TEST
 - [ ] Step 10 – Historical law versions and outdated-rule awareness (later)
 - ~~Step 11 – Tier 4 community providers (Reddit)~~ removed: Reddit's Data API requires approval and forbids retention; tier 4 stays a disabled no-op provider
 - [ ] Step 12 – Scheduled law-change check and ingestion, new-legislation alerts (later)
-- [ ] Step 13 – Evaluation suite
-- [ ] Step 14 – Hardening, deployment audit, release v0.1.0
+- [x] Step 13 – Evaluation suite
+- [x] Step 14 – Hardening, deployment audit, release v0.1.0

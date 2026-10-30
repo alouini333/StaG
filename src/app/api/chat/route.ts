@@ -1,6 +1,7 @@
 import { handleChatStream } from "@mastra/ai-sdk";
 import { createUIMessageStreamResponse } from "ai";
 import { NextResponse } from "next/server";
+import { clientKey, createRateLimiter } from "@/auth/rate-limit";
 import { toChatErrorCode } from "@/chat/errors";
 import { validateChatRequest } from "@/chat/validate-request";
 import { mastra } from "@/mastra";
@@ -10,8 +11,13 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const NO_STORE = { "Cache-Control": "no-store" };
+// Best effort on serverless (per instance); the password gate is the primary protection.
+const limiter = createRateLimiter({ max: 20, windowMs: 60_000 });
 
 export async function POST(request: Request) {
+  if (!limiter.allow(clientKey(request))) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { ...NO_STORE, "Retry-After": "60" } });
+  }
   const body = await request.json().catch(() => null);
   const params = validateChatRequest(body);
   if (!params) {

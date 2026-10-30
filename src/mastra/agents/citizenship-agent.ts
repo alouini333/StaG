@@ -1,8 +1,9 @@
 import { Agent } from "@mastra/core/agent";
-import { UnicodeNormalizer } from "@mastra/core/processors";
+import { PromptInjectionDetector, UnicodeNormalizer } from "@mastra/core/processors";
+import { env } from "../../env";
 import { getPool } from "../../db/pool";
 import { getIndexStatus, type IndexStatus } from "../../retrieval/search";
-import { chatModel } from "../config/models";
+import { chatModel, modelIds } from "../config/models";
 import { CitationGuard } from "../processors/citation-guard";
 import { lookupStatute } from "../tools/lookup-statute";
 import { searchCitizenshipSources } from "../tools/search-citizenship-sources";
@@ -31,7 +32,10 @@ export const citizenshipAgent = new Agent({
   instructions: async () => buildInstructions({ indexStatus: await currentIndexStatus() }),
   model: chatModel,
   tools: { searchCitizenshipSources, lookupStatute },
-  inputProcessors: [new UnicodeNormalizer()],
+  // INPUT_GUARD=true adds an LLM-based prompt-injection check (costs one utility-model call per message).
+  inputProcessors: env.INPUT_GUARD
+    ? [new UnicodeNormalizer(), new PromptInjectionDetector({ model: `google/${modelIds.utility}` })]
+    : [new UnicodeNormalizer()],
   outputProcessors: [new CitationGuard()],
   defaultOptions: { maxSteps: 6 },
 });

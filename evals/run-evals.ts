@@ -50,7 +50,8 @@ async function main() {
         run = {
           text: result.text,
           toolOutputs: toolResults.map((t) => t.output ?? t.result ?? t.payload ?? t),
-          toolNames: [...new Set(toolResults.map((t) => String(t.toolName ?? "")).filter(Boolean))],
+          // Mastra step tool results carry the name either at the top level or inside `payload`.
+          toolNames: [...new Set(toolResults.map((t) => String(t.toolName ?? (t.payload as Record<string, unknown> | undefined)?.toolName ?? "")).filter(Boolean))],
         };
         break;
       } catch (error) {

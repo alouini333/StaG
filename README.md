@@ -46,7 +46,7 @@ Notes:
 pnpm dev                      # http://localhost:3000 → redirects to /login
 ```
 
-Sign in with `APP_PASSWORD` from your `.env`, then ask questions in German or English. Enter sends, Shift+Enter inserts a newline. "Neuer Chat" clears the history (the browser keeps the conversation and sends it with every request; there is no server-side memory yet).
+Sign in with `APP_PASSWORD` from your `.env`, then ask questions in German or English. Every answer shows its sources with tier badges; `[S1]` markers link to them. Enter sends, Shift+Enter inserts a newline. "Neuer Chat" clears the history (the browser keeps the conversation and sends it with every request; there is no server-side memory yet).
 
 ### Password
 
@@ -186,6 +186,42 @@ Excluded on purpose: make-it-in-germany.com (bot captcha), the official English 
 4. `pnpm ingest --source <id>` and inspect the result with `pnpm sources:status` and `pnpm query "…" --tier <n>`.
 5. If the page has no "Stand:" line, the `Last-Modified` header or the fetch date is used as the as-of date; set `standOverride` for PDFs with a known date.
 
+## How retrieval decides what to show
+
+`searchCitizenshipSources` (the agent's main tool) enforces the hierarchy in code, in [`src/retrieval/search.ts`](src/retrieval/search.ts) and the pure helpers in [`src/retrieval/hierarchy.ts`](src/retrieval/hierarchy.ts):
+
+1. Embed the German query and search current (non-historical) chunks of tiers 1–3 (top 15, cosine ≥ 0.35).
+2. Order **law → federal authority → Land/institution**, best score first within a tier, capped at 6/4/3.
+3. **Law next to the page that cites it:** every provision cited in a tier-2/3 excerpt (`§ 10 Abs. 3 StAG`) is pulled from `law_sections` and added as a tier-1 result "(aktuelle Fassung)", so a FAQ describing a repealed rule always appears beside the current text, e.g. "(3) (weggefallen)".
+4. Flag tier-2/3 results as **possibly outdated** when their as-of date is older than the governing law's Stand, or when the page has no date of its own.
+5. Assess coverage: *strong* (≥ 2 hits ≥ 0.60), *partial* (≥ 1 hit ≥ 0.50), *none*.
+6. Consult tier 4 (community) only when the gate opens:
+
+| intent \ coverage | strong | partial | none |
+|---|---|---|---|
+| legal | no | no | yes |
+| procedural | no | yes | yes |
+| mixed | no | yes | yes |
+| experience | yes | yes | yes |
+
+7. Assign citation ids `S1…Sn` (official first, community after) and attach the index status (last ingestion, age, per-law Stand, pending updates).
+
+`lookupStatute` returns the exact current text of a § or Absatz (`[L-StAG-10-3]`), marking repealed provisions. `pnpm query "<question>" --intent legal|procedural|experience|mixed` runs the same pipeline from the CLI and prints coverage, gating reason and flags; use it to tune the thresholds in `RETRIEVAL`.
+
+## How the agent answers
+
+```
+user message → Next.js /api/chat (password cookie required)
+  → Mastra agent (instructions = policy + live index status; no legal facts in the prompt)
+     → UnicodeNormalizer (input)
+     → searchCitizenshipSources (always) · lookupStatute (when a § is named)
+     → Gemini writes the answer in the user's language, labelling "the law says / the authority states / people report",
+       citing [S1] ids only, asking for missing facts, never writing URLs
+     → CitationGuard (output): drops ids not returned by tools and URLs not among the sources
+  → streamed to the browser; the UI builds the sources list from the tool results, renders [S1] as links,
+    shows tier badges, "possibly outdated", "former version", Land and community markers, and the index-status banner
+```
+
 ## RAG data model
 
 Everything the agent retrieves is a **chunk**: a piece of text with a vector and a metadata object. The metadata is what makes citations, tier ranking, freshness and the old-law feature possible.
@@ -221,8 +257,8 @@ Integration tests for the repositories run against a throwaway schema when `TEST
 - [x] Step 5 – Source registry, tiers, chunk metadata (with validity fields), app tables
 - [x] Step 6 – Tier 1: law ingestion from gesetze-im-internet XML (archive-aware)
 - [x] Step 7 – Tiers 1–3 expansion: more laws, official pages, PDFs
-- [ ] Step 8 – Retrieval tools with code-enforced hierarchy
-- [ ] Step 9 – Agent v1: instructions, tools, CitationGuard, sources UI
+- [x] Step 8 – Retrieval tools with code-enforced hierarchy
+- [x] Step 9 – Agent v1: instructions, tools, CitationGuard, sources UI
 - [ ] Step 10 – Historical law versions and outdated-rule awareness
 - [ ] Step 11 – Tier 4 community providers (curated notes, live Reddit)
 - [ ] Step 12 – Scheduled law-change check and ingestion, new-legislation alerts
